@@ -1,0 +1,66 @@
+你正在处理一个名为“{{ name }}”的{{ app_type }}，你需要根据技术负责人给你的任务为整个{{ task_type }}编写代码。
+为了更好地了解你正在进行的工作，还为你提供了“{{ name }}”的其他规范。
+
+以下是对“{{ name }}”的高级描述：
+```
+{{ app_summary }}
+```
+
+{% if user_stories %}
+以下是指定用户如何使用“{{name}}”的用户故事：
+```{% for story in user_stories %}
+- {{ story }}{% endfor %}
+```
+
+{% endif %}
+{% if user_tasks %}
+以下是指定用户需要执行哪些操作才能与"{{ name }}"进行交互的用户任务：
+```{% for task in user_tasks %}
+- {{ task }}{% endfor %}
+```
+
+{% endif %}
+以下这些技术是你 {% if task_type == 'app' %}已经{% else %}曾经{% endif %}在这个项目中使用的:
+```{% for tech in technologies %}
+- {{ tech }}{% endfor %}
+```
+
+{% if current_task_index != 0 or task_type == 'feature' %}
+到目前为止，这些代码已经实现：
+{% for file in files %}
+**{{ file.path }}**
+```{# file.language #}
+{{ file.content }}
+```
+
+{% endfor %}
+{% endif %}
+
+我们已将此{{ task_type }}的开发分解为以下任务：
+```{% for task in development_tasks %}
+- {{ loop.index }}. {{ task['description'] }}
+{% endfor %}
+```
+
+你当前正在处理的任务{{current_task_index+1}}，具有以下描述：
+```
+{{ development_tasks[current_task_index]['description'] }}
+```
+{% if current_task_index != 0 %}
+以前的所有任务都已完成，你不必再处理它们。
+{% endif %}
+所有代码完成后，人类开发人员将检查它是否以这种方式工作 - {{ development_tasks[current_task_index]['user_review_goal'] }}
+
+现在，告诉我，需要编写的所有代码，“只”包括了能实现使此任务完全工作所需的实现代码和需要运行的所有命令。
+
+{{no_microservices}}
+
+**重要**
+{% if task_type == 'app' %}
+请记住，我创建了一个空文件夹，在那里我将开始写入你告诉我的关于此应用程序的所有文件。
+你不需要做任何自动化测试方面的工作。
+{% endif %}
+
+告诉我如何测试此任务，看看它是否有效。
+“不要”指定创建任何文件夹或文件的命令，它们将自动创建——只需指定需要写入的每个文件的相对路径。
+永远不要使用端口5000来运行应用程序，它是保留的。

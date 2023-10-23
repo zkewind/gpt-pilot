@@ -1,0 +1,30 @@
+我希望你创建可以这样描述的 {{ app_type }} (让我们称之为 "{{ name }}") :
+```
+{{ prompt }}
+```
+
+{% if clarifications and clarifications|length > 1 %}
+以下是一些其他问题和答案，以澄清 {{ app_type }} 的描述:
+```
+{% for clarification in clarifications[2:] %}
+    {% if loop.index is odd %}
+    问: {{ clarification.content }}
+    {% else %}
+    答: {{ clarification.content }}
+    {% endif %}
+{% endfor %}
+```
+{% endif %}
+
+一步一步地思考 {{ app_type }} "{{ name }}" 的描述以及附加问题及答案，并分解用户故事。
+你将考虑 {{ app_type }} 描述和列出的答案，并创建所有用户故事的列表。用户故事是对用户如何与 {{ app_type }}进行交互的描述。
+
+例如，如果一个应用程序的描述是“创建一个脚本，查找频道名称中包含“测试”一词的Youtube频道”，则用户故事可能是：
+-`用户将从CLI运行脚本`
+-`用户将获得CSV文件中所有频道的列表`
+
+**重要**
+一次返回一个用户故事。除了单个用户的故事外，不要返回任何其他内容。我可能会要求你修改一些用户故事，只有当我向你发送空回复时，你才能转到下一个用户故事。
+**重要**
+创建完所有用户故事后，只需编写包含以下内容的响应：
+{{END_RESPONSE}}

@@ -1,0 +1,37 @@
+{% if completed_steps -%}
+# 已完成的任务步骤：
+```
+{{ completed_steps }}
+```
+
+{% endif -%}
+
+# 当前步骤：
+{% if success %}此步骤已成功执行。
+{%- elif user_input -%}
+此步骤将不会执行。 {{ user_input }}
+{%- else -%}
+此步骤未执行成功。
+{%- endif %}
+```
+{{ current_step }}
+```
+
+{%- if cli_response %}
+
+{{ cli_response }}
+{%- endif %}
+
+{%- if next_steps %}
+
+下一个任务步骤：
+```
+{{ next_steps }}
+```
+
+根据“下一个任务步骤”和我上面对“当前步骤”的评论，请创建一个新的完成此任务所需的任务步骤列表。当前步骤可能需要修改，因此，任何下一个任务步骤可能仍然有效，也可能无效。
+{% else -%}
+根据上述我对当前步骤的评论，请创建一个新的完成此任务所需的任务步骤列表。
+{% endif %}
+任何命令都必须能够在 {{ os }} 计算机上运行。
+{{ list_running_processes }}

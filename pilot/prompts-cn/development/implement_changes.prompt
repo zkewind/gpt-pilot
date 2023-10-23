@@ -1,0 +1,10 @@
+{% if files|length > 0 %}以下是文件现在的外观：
+{% for file in files %}
+**{{ file.path }}**
+```{# file.language #}
+{{ file.content }}
+```
+
+{% endfor %}{% endif %}现在，一步一步地思考，并为步骤#{{ step_index }} - `{{ step_description }}`应用所需的更改。
+
+在文件修改中，如果有任何内容需要用户编写，请将注释添加到以`// INPUT_REQUIRED {input_description}`开头的代码的同一行中，其中“input_description”是用户需要在此处添加内容的描述。最后，你可以通过调用“save_files”函数将修改后的文件保存在磁盘上。

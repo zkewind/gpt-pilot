@@ -1,0 +1,7 @@
+{{ additional_info }}我运行了命令 `{{ command }}`
+{%- if exit_code is number %}, 则退出代码为 {{ exit_code }}{% endif %}
+{%- if error_response %}, 则为 {{ error_response }}{% endif %}. 输出为:
+
+{{ cli_response }}
+
+如果命令执行成功，请回复 `DONE`。如果不是，请回复“NEEDS_DEBUGGING”。
