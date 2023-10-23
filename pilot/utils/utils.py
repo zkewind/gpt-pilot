@@ -15,7 +15,7 @@ from const.llm import MAX_QUESTIONS, END_RESPONSE
 from const.common import ROLES, STEPS
 from logger.logger import logger
 
-prompts_path = os.path.join(os.path.dirname(__file__), '..', 'prompts')
+prompts_path = os.path.join(os.path.dirname(__file__), '..', 'prompts-cn')
 file_loader = FileSystemLoader(prompts_path)
 env = Environment(loader=file_loader)
 
@@ -61,7 +61,7 @@ def get_prompt_components(data):
     })
 
     # Create a FileSystemLoader
-    prompts_path = os.path.join(os.path.dirname(__file__), '..', 'prompts/components')
+    prompts_path = os.path.join(os.path.dirname(__file__), '..', 'prompts-cn/components')
     file_loader = FileSystemLoader(prompts_path)
 
     # Create the Jinja2 environment
