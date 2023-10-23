@@ -14,6 +14,8 @@ from prompts.prompts import ask_user
 from const.llm import END_RESPONSE
 from helpers.cli import running_processes
 
+from const.llm import MAX_QUESTIONS
+
 
 class AgentConvo:
     """
@@ -146,8 +148,8 @@ class AgentConvo:
         accepted_messages = []
         response = self.send_message(prompt_path, prompt_data, function_calls)
 
-        # Continue conversation until GPT response equals END_RESPONSE
-        while response != END_RESPONSE:
+        # Continue conversation until GPT response equals END_RESPONSE  or reaches MAX_QUESTIONS
+        while response != END_RESPONSE and len(accepted_messages) < MAX_QUESTIONS:
             user_message = ask_user(self.agent.project, response,
                                     hint=color_yellow("Do you want to add anything else? If not, ") + color_yellow_bold('just press ENTER.'),
                                     require_some_input=False)
