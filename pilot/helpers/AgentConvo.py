@@ -2,6 +2,7 @@ import json
 import re
 import subprocess
 import uuid
+from os.path import sep
 from utils.style import color_yellow, color_yellow_bold
 
 from database.database import get_saved_development_step, save_development_step, delete_all_subsequent_steps
@@ -13,6 +14,7 @@ from logger.logger import logger
 from prompts.prompts import ask_user
 from const.llm import END_RESPONSE
 from helpers.cli import running_processes
+from utils.telemetry import telemetry
 
 from const.llm import MAX_QUESTIONS
 
@@ -25,13 +27,14 @@ class AgentConvo:
         agent: An instance of the agent participating in the conversation.
     """
 
-    def __init__(self, agent):
+    def __init__(self, agent, temperature: float = 0.7):
         # [{'role': 'system'|'user'|'assistant', 'content': ''}, ...]
         self.messages: list[dict] = []
         self.branches = {}
         self.log_to_user = True
         self.agent = agent
         self.high_level_step = self.agent.project.current_step
+        self.temperature = temperature
 
         # add system message
         system_message = get_sys_message(self.agent.role, self.agent.project.args)
@@ -39,7 +42,7 @@ class AgentConvo:
                     system_message['content'])
         self.messages.append(system_message)
 
-    def send_message(self, prompt_path=None, prompt_data=None, function_calls: FunctionCallSet = None):
+    def send_message(self, prompt_path=None, prompt_data=None, function_calls: FunctionCallSet = None, should_log_message=True):
         """
         Sends a message in the conversation.
 
@@ -47,7 +50,7 @@ class AgentConvo:
             prompt_path: The path to a prompt.
             prompt_data: Data associated with the prompt.
             function_calls: Optional function calls to be included in the message.
-
+            should_log_message: Flag if final response should be logged.
         Returns:
             The response from the agent.
         """
@@ -153,11 +156,11 @@ class AgentConvo:
         accepted_messages = []
         response = self.send_message(prompt_path, prompt_data, function_calls)
 
-        # Continue conversation until GPT response equals END_RESPONSE  or reaches MAX_QUESTIONS
-        while response != END_RESPONSE and len(accepted_messages) < MAX_QUESTIONS:
-            user_message = ask_user(self.agent.project, response,
-                                    hint=color_yellow("Do you want to add anything else? If not, ") + color_yellow_bold(
-                                        'just press ENTER.'),
+        # Continue conversation until GPT response equals END_RESPONSE
+        while response != END_RESPONSE:
+            user_message = ask_user(self.agent.project,
+                                    'Do you want to add anything else? If not, just press ENTER.',
+                                    hint=response,
                                     require_some_input=False)
 
             if user_message == "":
