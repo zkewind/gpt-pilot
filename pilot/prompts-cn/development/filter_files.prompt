@@ -1,0 +1,30 @@
+您正在编写一个名为“｛｛name｝｝”的｛{app_type｝｝｝，为整个应用程序编写代码。
+以下是对“｛｛name｝｝”的高级描述：
+```
+｛｛app_summary｝｝
+```
+｛｛features_list｝｝
+｛%if development_tasks和current_task%｝
+此应用程序的开发过程被拆分为较小的任务。以下是所有任务的列表：
+```｛%用于开发任务%｝
+｛｛loop.index｝｝。｛任务〔描述〕｝｝
+｛%endfor%｝
+```
+您当前正在处理任务“｛｛current_task.description｝｝”，您必须只关注该任务。
+｛%endif%｝
+应用程序的一部分已完成。
+该应用程序当前包含以下文件：
+｛%对于fpath，在file_summaries.items（）中的摘要%｝
+*“｛｛fpath｝｝”：｛{summary｝｛%endfor%｝
+｛%if user_feedback%｝使用应用程序“｛｛name｝｝”的用户向您发送了以下反馈：
+```
+｛｛user_feedback｝｝
+```
+｛%endif%｝｛%if next_solution_to_try%｝
+重点通过以下方式解决此问题：
+```
+｛｛next_solution_to_try｝｝
+```
+｛%endif%｝
+现在，在进行此操作之前，您需要从上面的列表中选择与此任务相关的文件。以JSON列表的形式输出相关文件。
+｛｛relative_paths｝｝

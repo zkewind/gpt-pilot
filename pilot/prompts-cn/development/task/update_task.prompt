@@ -1,37 +1,41 @@
-{% if completed_steps -%}
-# 已完成的任务步骤：
-```
-{{ completed_steps }}
-```
-
-{% endif -%}
-
-# 当前步骤：
-{% if success %}此步骤已成功执行。
-{%- elif user_input -%}
-此步骤将不会执行。 {{ user_input }}
-{%- else -%}
-此步骤未执行成功。
+{% if completed_steps|length > 1 -%}
+我们有一个如何调试的计划，我们已经完成了以下步骤：
+-------------------------list_of_completed_steps-------------------------{% for step in completed_steps[:-1] %}
+step #{{ loop.index - 1 }}:
+step_type: {{ step.type }}{% if 'command' in step %}
+command_to_run: `{{ step.command.command }}`{% elif step.type == 'code_change' %}
+code_change_description: `{{ step.code_change_description }}`{% endif %}{% endfor %}
+-------------------------END_list_of_completed_steps-------------------------
+{% else %}
+我们有一个如何调试的计划。
 {%- endif %}
-```
-{{ current_step }}
-```
 
-{%- if cli_response %}
+现在，我们正在进行步骤 #{{ current_step_index }}:
+-------------------------current_step-------------------------
+step_type: {{ current_step.type }}
+command_to_run: `{{ current_step.command.command }}`
+-------------------------END_current_step-------------------------
 
+我们已经运行了命令 `{{ current_step.command.command }}` ，得到了以下输出：
 {{ cli_response }}
-{%- endif %}
 
-{%- if next_steps %}
+{% if next_steps %}
+以下是将在当前步骤之后执行的步骤列表：
+-------------------------list_of_next_steps-------------------------
+{% for step in next_steps %}
+--step_{{ loop.index + current_step_index }}--
+step_type: {{ step.type }}{% if 'command' in step %}
+command_to_run: `{{ step.command.command }}`{% elif step.type == 'code_change' %}
+code_change_description: `{{ step.code_change_description }}`{% endif %}
+--END_step_{{ loop.index + current_step_index }}--{% endfor %}
+-------------------------END_list_of_next_steps-------------------------
 
-下一个任务步骤：
-```
-{{ next_steps }}
-```
-
-根据“下一个任务步骤”和我上面对“当前步骤”的评论，请创建一个新的完成此任务所需的任务步骤列表。当前步骤可能需要修改，因此，任何下一个任务步骤可能仍然有效，也可能无效。
-{% else -%}
-根据上述我对当前步骤的评论，请创建一个新的完成此任务所需的任务步骤列表。
 {% endif %}
-任何命令都必须能够在 {{ os }} 计算机上运行。
-{{ list_running_processes }}
+现在，一步一步地思考，并根据我们从运行中获得的输出创建一个新的任务步骤列表来完成此任务`{{ current_step.command.command }}`.它要么与现在相同，要么可能不再需要任何下一个任务步骤。
+
+{{ file_naming }}
+{{ relative_paths }}
+
+{{ execution_order }}
+
+{{ file_size_limit }}
