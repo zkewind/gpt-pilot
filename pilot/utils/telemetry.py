@@ -92,8 +92,6 @@ class Telemetry:
             "app_id": None,
             # Project architecture
             "architecture": None,
-            # Is complex app
-            "is_complex_app": None,
         }
         if sys.platform == "linux":
             try:

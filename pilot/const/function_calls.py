@@ -40,6 +40,88 @@ def return_array_from_prompt(name_plural, name_singular, return_var_name):
     }
 
 
+def dev_step_type_description():
+    return "Type of the development step that needs to be done to complete the entire task."
+
+
+def step_command_definition(extended=False):
+    # Base properties and required fields
+    properties = {
+        "type": {
+            "const": "command",
+            "description": dev_step_type_description()
+        },
+        "command": command_definition(),
+    }
+    required = ["type", "command"]
+
+    # Extended properties
+    if extended:
+        properties.update({
+            "need_to_see_output": {
+                "type": "boolean",
+                "description": "Set to `true` if the definition of subsequent steps may need to change after you see the output of a successful execution of this step. For example, if the purpose of a command is to check the status of a service or contents of a file before deciding how to proceed then this flag should be set to `true`. If subsequent steps can be executed as long as this step is successful, then this flag does not need to be set."
+            },
+            "check_if_fixed": {
+                "type": "boolean",
+                "description": "Flag that indicates if the original command that triggered the error that's being debugged should be tried after this step to check if the error is fixed. If you think that the original command `delete node_modules/ && delete package-lock.json` will pass after this step, then this flag should be set to TRUE and if you think that the original command will still fail after this step, then this flag should be set to `false`."
+            }
+        })
+        # Update required fields when extended
+        required.extend(["need_to_see_output", "check_if_fixed"])
+
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required
+    }
+
+
+def step_save_file_definition():
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "const": "save_file",
+                "description": dev_step_type_description()
+            },
+            "save_file": {
+                "type": "object",
+                "description": "A file that should be created or updated.",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Full path of the file with the file name."
+                    },
+                    "code_change_description": {
+                        "type": "string",
+                        "description": "Empty string"
+                    }
+                },
+                "required": ["path", "code_change_description"]
+            }
+        },
+        "required": ["type", "save_file"]
+    }
+
+
+def step_human_intervention_definition():
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "const": "human_intervention",
+                "description": 'Development step that will be executed by a human. You should avoid using this step if possible, task does NOT need to have "human_intervention" step.'
+            },
+            "human_intervention_description": {
+                "type": "string",
+                "description": "Very clear description of step where human intervention is needed."
+            }
+        },
+        "required": ["type", "human_intervention_description"]
+    }
+
+
 def command_definition(description_command='A single command that needs to be executed.',
                        description_timeout=
                        'Timeout in milliseconds that represent the approximate time this command takes to finish. '
@@ -93,80 +175,84 @@ USER_TASKS = {
 
 ARCHITECTURE = {
     'definitions': [
-        return_array_from_prompt('technologies', 'technology', 'technologies')
+        {
+            'name': 'process_architecture',
+            'description': "Get architecture and the list of system dependencies required for the project.",
+            'parameters': {
+                'type': 'object',
+                "properties": {
+                    "architecture": {
+                        "type": "string",
+                        "description": "General description of the app architecture.",
+                    },
+                    "system_dependencies": {
+                        "type": "array",
+                        "description": "List of system dependencies required to build and run the app.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Name of the system dependency, for example Node.js or Python."
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "One-line description of the dependency.",
+                                },
+                                "test": {
+                                    "type": "string",
+                                    "description": "Command line to test whether the dependency is available on the system.",
+                                },
+                                "required_locally": {
+                                    "type": "boolean",
+                                    "description": "Whether this dependency must be installed locally (as opposed to connecting to cloud or other server)",
+                                }
+                            },
+                            "required": ["name", "description", "test", "required_locally"],
+                        },
+                    },
+                    "package_dependencies": {
+                        "type": "array",
+                        "description": "List of framework/language-specific packages used by the app.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Name of the package dependency, for example Express or React."
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "One-line description of the dependency.",
+                                }
+                            },
+                            "required": ["name", "description"],
+                        },
+                    },
+                    'template': {
+                        'type': ['string', 'null'],
+                        'description': 'One of the available project templates.',
+                    },
+                },
+                "required": ["architecture", "system_dependencies", "package_dependencies"],
+            },
+        },
     ],
     'functions': {
         'process_technologies': lambda technologies: technologies
     },
 }
 
-FILTER_OS_TECHNOLOGIES = {
-    'definitions': [
-        return_array_from_prompt('os specific technologies', 'os specific technology', 'technologies')
-    ],
-    'functions': {
-        'process_os_specific_technologies': process_os_technologies
-    },
-}
-
-INSTALL_TECH = {
-    'definitions': [
-        return_array_from_prompt('os specific technologies', 'os specific technology', 'technologies')
-    ],
-    'functions': {
-        'process_os_specific_technologies': process_os_technologies
-    },
-}
-
-COMMANDS_TO_RUN = {
-    'definitions': [
-        return_array_from_prompt('commands', 'command', 'commands')
-    ],
-    'functions': {
-        'process_commands': run_commands
-    },
-}
-
-DEV_TASKS_BREAKDOWN = {
+COMMAND_TO_RUN = {
     'definitions': [
         {
-            'name': 'break_down_development_task',
-            'description': 'Breaks down the development task into smaller steps that need to be done to implement the entire task.',
-            'parameters': {
-                'type': 'object',
-                "properties": {
-                    "tasks": {
-                        'type': 'array',
-                        'description': 'List of smaller development steps that need to be done to complete the entire task.',
-                        'items': {
-                            'type': 'object',
-                            'description': 'A smaller development step that needs to be done to complete the entire task.  Remember, if you need to run a command that doesn\'t finish by itself (eg. a command to run an app), put the timeout to 3000 milliseconds. If you need to create a directory that doesn\'t exist and is not the root project directory, always create it by running a command `mkdir`',
-                            'properties': {
-                                'type': {
-                                    'type': 'string',
-                                    'enum': ['command', 'code_change', 'human_intervention'],
-                                    'description': 'Type of the development step that needs to be done to complete the entire task.',
-                                },
-                                'command': command_definition('A single command that needs to be executed.', 'Timeout in milliseconds that represent the approximate time the command takes to finish. This should be used only if the task is of a type "command". If you need to run a command that doesn\'t finish by itself (eg. a command to run an app), put the timeout to 3000 milliseconds. Remember, this is not in seconds but in milliseconds so likely it always needs to be greater than 1000.'),
-                                'code_change_description': {
-                                    'type': 'string',
-                                    'description': 'Description of a the development step that needs to be done. This should be used only if the task is of a type "code_change" and it should thoroughly describe what needs to be done to implement the code change for a single file - it cannot include changes for multiple files.',
-                                },
-                                'human_intervention_description': {
-                                    'type': 'string',
-                                    'description': 'Description of a task that requires a human to do.',
-                                },
-                            },
-                            'required': ['type'],
-                        }
-                    }
-                },
-                "required": ['tasks'],
-            },
+            'name': 'command_to_run',
+            'description': 'Command that starts the app.',
+            'parameters': command_definition("Command that starts the app. If app can't be started for some reason, return command as empty string ''."),
         },
     ],
     'functions': {
-        'break_down_development_task': lambda tasks: tasks
+        'process_commands': run_commands
     },
 }
 
@@ -180,46 +266,13 @@ IMPLEMENT_TASK = {
                 "properties": {
                     "tasks": {
                         'type': 'array',
-                        'description': 'List of smaller development steps that need to be done to complete the entire task.',
+                        'description': 'List of smaller development steps.',
                         'items': {
-                            'type': 'object',
-                            'description': 'A smaller development step that needs to be done to complete the entire task.  Remember, if you need to run a command that doesn\'t finish by itself (eg. a command to run an  If you need to create a directory that doesn\'t exist and is not the root project directory, always create it by running a command `mkdir`',
-                            'properties': {
-                                'type': {
-                                    'type': 'string',
-                                    'enum': ['command', 'kill_process', 'code_change', 'human_intervention'],
-                                    'description': 'Type of the development step that needs to be done to complete the entire task.',
-                                },
-                                'command': command_definition(),
-                                'kill_process': {
-                                    'type': 'string',
-                                    'description': 'To kill a process that was left running by a previous `command` step provide the `command_id` in this field and set `type` to "kill_process".',
-                                },
-                                'code_change': {
-                                    'type': 'object',
-                                    'description': 'A code change that needs to be implemented. This should be used only if the task is of a type "code_change".',
-                                    'properties': {
-                                        'name': {
-                                            'type': 'string',
-                                            'description': 'Name of the file that needs to be implemented.',
-                                        },
-                                        'path': {
-                                            'type': 'string',
-                                            'description': 'Full path of the file with the file name that needs to be implemented.',
-                                        },
-                                        'content': {
-                                            'type': 'string',
-                                            'description': 'Full content of the file that needs to be implemented.',
-                                        },
-                                    },
-                                    'required': ['name', 'path', 'content'],
-                                },
-                                'human_intervention_description': {
-                                    'type': 'string',
-                                    'description': 'Description of a step in debugging this issue when there is a human intervention needed. This should be used only if the task is of a type "human_intervention".',
-                                },
-                            },
-                            'required': ['type'],
+                            "oneOf": [
+                                step_command_definition(),
+                                step_save_file_definition(),
+                                step_human_intervention_definition(),
+                            ]
                         }
                     }
                 },
@@ -232,133 +285,31 @@ IMPLEMENT_TASK = {
     },
 }
 
-DEV_STEPS = {
+ALTERNATIVE_SOLUTIONS = {
     'definitions': [
         {
-            'name': 'break_down_development_task',
-            'description': 'Breaks down the development task into smaller steps that need to be done to implement the entire task.',
+            'name': 'get_alternative_solutions_to_issue',
+            'description': 'Gets alternative solutions to the recurring issue that was labeled as loop by the user.',
             'parameters': {
                 'type': 'object',
                 "properties": {
-                    "tasks": {
-                        'type': 'array',
-                        'description': 'List of development steps that need to be done to complete the entire task.',
-                        'items': {
-                            'type': 'object',
-                            'description': 'Development step that needs to be done to complete the entire task.',
-                            'properties': {
-                                'type': {
-                                    'type': 'string',
-                                    'description': 'Type of the development step that needs to be done to complete the entire task - it can be "command" or "code_change".',
-                                },
-                                'description': {
-                                    'type': 'string',
-                                    'description': 'Description of the development step that needs to be done.',
-                                },
-                            },
-                            'required': ['type', 'description'],
-                        }
-                    }
-                },
-                "required": ['tasks'],
-            },
-        },
-        {
-            'name': 'run_commands',
-            'description': 'Run all commands in the given list. Each command needs to be a single command that can be executed.',
-            'parameters': {
-                'type': 'object',
-                "properties": {
-                    "commands": {
-                        'type': 'array',
-                        'description': 'List of commands that need to be run to complete the currrent task. Each command cannot be anything other than a single CLI command that can be independetly run.',
-                        'items': {
-                            'type': 'string',
-                            'description': 'A single command that needs to be run to complete the current task.',
-                        }
-                    }
-                },
-                "required": ['commands'],
-            },
-        },
-        {
-            'name': 'process_code_changes',
-            'description': 'Implements all the code changes outlined in the description.',
-            'parameters': {
-                'type': 'object',
-                "properties": {
-                    "code_change_description": {
+                    "description_of_tried_solutions": {
                         'type': 'string',
-                        'description': 'A detailed description of what needs to be done to implement all the code changes from the task.',
-                    }
-                },
-                "required": ['code_change_description'],
-            },
-        },
-        {
-            'name': 'get_files',
-            'description': 'Returns development files that are currently implemented so that they can be analized and so that changes can be appropriatelly made.',
-            'parameters': {
-                'type': 'object',
-                'properties': {
-                    'files': {
+                        'description': 'A description of the solutions that were tried to solve the recurring issue that was labeled as loop by the user.',
+                    },
+                    "alternative_solutions": {
                         'type': 'array',
-                        'description': 'List of files that need to be analyzed to implement the required changes.',
+                        'description': 'List of all alternative solutions to the recurring issue that was labeled as loop by the user.',
                         'items': {
                             'type': 'string',
-                            'description': 'A single file name that needs to be analized to implement the reqired changes. Remember, this is a file name with path relative to the project root. For example, if a file path is `{{project_root}}/models/model.py`, this value needs to be `models/model.py`.',
+                            'description': 'Development step that needs to be done to complete the entire task.',
                         }
                     }
                 },
-                'required': ['files'],
+                "required": ['description_of_tried_solutions', 'alternative_solutions'],
             },
         }
-    ],
-    'functions': {
-        'break_down_development_task': lambda tasks: (tasks, 'more_tasks'),
-        'run_commands': lambda commands: (commands, 'run_commands'),
-        'process_code_changes': lambda code_change_description: (code_change_description, 'code_changes'),
-        'get_files': return_files
-    },
-}
-
-CODE_CHANGES = {
-    'definitions': [
-        {
-            'name': 'break_down_development_task',
-            'description': 'Implements all the smaller tasks that need to be done to complete the entire development task.',
-            'parameters': {
-                'type': 'object',
-                "properties": {
-                    "tasks": {
-                        'type': 'array',
-                        'description': 'List of smaller development steps that need to be done to complete the entire task.',
-                        'items': {
-                            'type': 'object',
-                            'description': 'A smaller development step that needs to be done to complete the entire task.  Remember, if you need to run a command that doesn\'t finish by itself (eg. a command to run an app), put the timeout to 3000 milliseconds. If you need to create a directory that doesn\'t exist and is not the root project directory, always create it by running a command `mkdir`',
-                            'properties': {
-                                'type': {
-                                    'type': 'string',
-                                    'enum': ['command', 'code_change'],
-                                    'description': 'Type of the development step that needs to be done to complete the entire task.',
-                                },
-                                'command': command_definition('Command that needs to be run to complete the current task. This should be used only if the task is of a type "command".', 'Timeout in milliseconds that represent the approximate time the command takes to finish. This should be used only if the task is of a type "command". If you need to run a command that doesn\'t finish by itself (eg. a command to run an app), put the timeout to 3000 milliseconds. Remember, this is not in seconds but in milliseconds so likely it always needs to be greater than 1000.'),
-                                'code_change_description': {
-                                    'type': 'string',
-                                    'description': 'Description of a the development step that needs to be done. This should be used only if the task is of a type "code_change" and it should thoroughly describe what needs to be done to implement the code change.',
-                                },
-                            },
-                            'required': ['type'],
-                        }
-                    }
-                },
-                "required": ['tasks'],
-            },
-        }
-    ],
-    'functions': {
-        'break_down_development_task': lambda tasks: tasks,
-    },
+    ]
 }
 
 DEVELOPMENT_PLAN = {
@@ -373,22 +324,14 @@ DEVELOPMENT_PLAN = {
                     "description": 'List of development tasks that need to be done to implement the entire plan.',
                     "items": {
                         "type": "object",
-                        'description': 'Development task that needs to be done to implement the entire plan.',
+                        'description': 'Development task that needs to be done to implement the entire plan. It contains all details that developer who is not familiar with project needs to know to implement the task.',
                         'properties': {
                             'description': {
                                 'type': 'string',
-                                'description': 'Description of the development task that needs to be done to implement the entire plan.',
-                            },
-                            'programmatic_goal': {
-                                'type': 'string',
-                                'description': 'programmatic goal that will determine if a task can be marked as done from a programmatic perspective (this will result in an automated test that is run before the task is sent to you for a review)',
-                            },
-                            'user_review_goal': {
-                                'type': 'string',
-                                'description': 'user-review goal that will determine if a task is done or not but from a user perspective since it will be reviewed by a human',
+                                'description': 'Very detailed description of the development task that needs to be done to implement the entire plan.',
                             }
                         },
-                        'required': ['description', 'programmatic_goal', 'user_review_goal'],
+                        'required': ['description'],
                     },
                 },
             },
@@ -398,6 +341,45 @@ DEVELOPMENT_PLAN = {
     'functions': {
         'implement_development_plan': lambda plan: plan
     },
+}
+
+UPDATE_DEVELOPMENT_PLAN = {
+    'definitions': [{
+        'name': 'update_development_plan',
+        'description': 'Updates the development plan.',
+        'parameters': {
+            'type': 'object',
+            "properties": {
+                "updated_current_task": {
+                    "type": "object",
+                    'description': 'Updated current task.',
+                    'properties': {
+                        'description': {
+                            'type': 'string',
+                            'description': 'Updated detailed description of what was implemented while working on the current development task.',
+                        }
+                    },
+                    'required': ['description'],
+                },
+                "plan": {
+                    "type": "array",
+                    "description": 'List of development tasks that still need to be done to implement the entire plan.',
+                    "items": {
+                        "type": "object",
+                        'description': 'Development task that needs to be implemented to finish the entire plan.',
+                        'properties': {
+                            'description': {
+                                'type': 'string',
+                                'description': 'Very detailed description of the development task that needs to be done to implement the entire plan.',
+                            }
+                        },
+                        'required': ['description'],
+                    },
+                },
+            },
+            "required": ['updated_current_task', 'plan'],
+        },
+    }],
 }
 
 EXECUTE_COMMANDS = {
@@ -422,73 +404,23 @@ EXECUTE_COMMANDS = {
     }
 }
 
-GET_FILES = {
+GET_FILE_TO_MODIFY = {
     'definitions': [{
-        'name': 'get_files',
-        'description': 'Returns development files that are currently implemented so that they can be analized and so that changes can be appropriatelly made.',
+        'name': 'get_file_to_modify',
+        'description': 'File that needs to be modified.',
         'parameters': {
             'type': 'object',
             'properties': {
-                'files': {
-                    'type': 'array',
-                    'description': 'List of files that need to be analized to implement the reqired changes. Any file name in this array MUST be from the directory tree listed in the previous message.',
-                    'items': {
-                        'type': 'string',
-                        'description': 'A single file name that needs to be analized to implement the reqired changes. Remember, this is a file name with path relative to the project root. For example, if a file path is `{{project_root}}/models/model.py`, this value needs to be `models/model.py`. This file name MUST be listed in the directory from the previous message.',
-                    }
+                'file': {
+                    'type': 'string',
+                    'description': 'Path to the file that needs to be modified, relative to the project root.',
                 }
-            },
-            'required': ['files'],
-        },
+            }
+        }
     }],
     'functions': {
-        'get_files': lambda files: files
+        'get_file_to_modify': lambda file: file
     }
-}
-
-IMPLEMENT_CHANGES = {
-    'definitions': [{
-        'name': 'save_files',
-        'description': 'Iterates over the files passed to this function and saves them on the disk.',
-        'parameters': {
-            'type': 'object',
-            'properties': {
-                'files': {
-                    'type': 'array',
-                    'description': 'List of files that need to be saved.',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {
-                                'type': 'string',
-                                'description': 'Name of the file that needs to be saved on the disk.',
-                            },
-                            'path': {
-                                'type': 'string',
-                                'description': 'Full path of the file with the file name that needs to be saved.',
-                            },
-                            'content': {
-                                'type': 'string',
-                                'description': 'Full content of the file that needs to be saved on the disk.',
-                            },
-                            'description': {
-                                'type': 'string',
-                                'description': 'Description of the file that needs to be saved on the disk. This description doesn\'t need to explain what is being done currently in this task but rather what is the idea behind this file - what do we want to put in this file in the future. Write the description ONLY if this is the first time this file is being saved. If this file already exists on the disk, leave this field empty.',
-                            },
-                        },
-                        'required': ['name', 'path', 'content'],
-                    }
-                }
-            },
-            'required': ['files'],
-        },
-    }],
-    'functions': {
-        'save_files': lambda files: files
-    },
-    'to_message': lambda files: [
-        f'File `{file["name"]}` saved to the disk and currently looks like this:\n```\n{file["content"]}\n```' for file
-        in files]
 }
 
 GET_TEST_TYPE = {
@@ -501,13 +433,13 @@ GET_TEST_TYPE = {
                 'type': {
                     'type': 'string',
                     'description': 'Type of a test that needs to be run. If this is just an intermediate step in getting a task done, put `no_test` as the type and we\'ll just go onto the next task without testing.',
-                    'enum': ['automated_test', 'command_test', 'manual_test', 'no_test']
+                    'enum': ['command_test', 'manual_test', 'no_test']
                 },
                 'command': command_definition('Command that needs to be run to test the changes.', 'Timeout in milliseconds that represent the approximate time this command takes to finish. If you need to run a command that doesn\'t finish by itself (eg. a command to run an app), put the timeout to 3000 milliseconds. If you need to create a directory that doesn\'t exist and is not the root project directory, always create it by running a command `mkdir`'),
-                'automated_test_description': {
-                    'type': 'string',
-                    'description': 'Description of an automated test that needs to be run to test the changes. This should be used only if the test type is "automated_test" and it should thoroughly describe what needs to be done to implement the automated test so that when someone looks at this test can know exactly what needs to be done to implement this automated test.',
-                },
+                # 'automated_test_description': {
+                #     'type': 'string',
+                #     'description': 'Description of an automated test that needs to be run to test the changes. This should be used only if the test type is "automated_test" and it should thoroughly describe what needs to be done to implement the automated test so that when someone looks at this test can know exactly what needs to be done to implement this automated test.',
+                # },
                 'manual_test_description': {
                     'type': 'string',
                     'description': 'Description of a manual test that needs to be run to test the changes. This should be used only if the test type is "manual_test".',
@@ -530,58 +462,159 @@ DEBUG_STEPS_BREAKDOWN = {
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'thoughts': {
-                        'type': 'string',
-                        'description': 'Thoughts that you have about the problem that you are trying to debug.'
-                    },
-                    'reasoning': {
-                        'type': 'string',
-                    },
                     'steps': {
                         'type': 'array',
                         'description': 'List of steps that need to be done to debug the problem.',
                         'items': {
-                            'type': 'object',
-                            'description': 'A single step that needs to be done to get closer to debugging this issue.  Remember, if you need to run a command that doesn\'t finish by itself (eg. a command to run an app), put the timeout to 3000 milliseconds. If you need to create a directory that doesn\'t exist and is not the root project directory, always create it by running a command `mkdir`',
-                            'properties': {
-                                'type': {
-                                    'type': 'string',
-                                    'enum': ['command', 'kill_process', 'code_change', 'human_intervention'],
-                                    'description': 'Type of the step that needs to be done to debug this issue.',
-                                },
-                                'command': command_definition('Command that needs to be run to debug this issue.', 'Timeout in milliseconds that represent the approximate time this command takes to finish. If you need to run a command that doesn\'t finish by itself (eg. a command to run an app), put the timeout to 3000 milliseconds.'),
-                                'kill_process': {
-                                    'type': 'string',
-                                    'description': 'To kill a process that was left running by a previous `command` step provide the `command_id` in this field and set `type` to "kill_process".',
-                                },
-                                'code_change_description': {
-                                    'type': 'string',
-                                    'description': 'Description of a step in debugging this issue when there are code changes required. This should be used only if the task is of a type "code_change" and it should thoroughly describe what needs to be done to implement the code change for a single file - it cannot include changes for multiple files.',
-                                },
-                                'human_intervention_description': {
-                                    'type': 'string',
-                                    'description': 'Description of a step in debugging this issue when there is a human intervention needed. This should be used only if the task is of a type "human_intervention".',
-                                },
-                                "need_to_see_output": {
-                                    'type': 'boolean',
-                                    'description': 'Set to `true` if the definition of subsequent steps may need to change after you see the output of a successful execution of this step. '
-                                                   'For example, if the purpose of a command is to check the status of a service or contents of a file before deciding how to proceed then this flag should be set to `true`. '
-                                                   'If subsequent steps can be executed as long as this step is successful, then this flag does not need to be set.',
-                                },
-                                "check_if_fixed": {
-                                    'type': 'boolean',
-                                    'description': 'Flag that indicates if the original command that triggered the error that\'s being debugged should be tried after this step to check if the error is fixed. If you think that the original command `delete node_modules/ && delete package-lock.json` will pass after this step, then this flag should be set to TRUE and if you think that the original command will still fail after this step, then this flag should be set to `false`.',
-                                }
-                            },
-                            'required': ['type', 'check_if_fixed'],
+                            "oneOf": [
+                                step_command_definition(True),
+                                step_save_file_definition(),
+                                step_human_intervention_definition(),
+                            ]
                         }
                     }
                 },
-                "required": ['thoughts', 'reasoning', 'steps'],
+                "required": ['steps'],
             },
         },
     ],
     'functions': {
         'start_debugging': lambda steps: steps
     },
+}
+
+GET_DOCUMENTATION_FILE = {
+    'definitions': [{
+        'name': 'get_documentation_file',
+        'description': 'Gets the full content of requested documentation file.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'path': {
+                    'type': 'string',
+                    'description': 'Relative path of the documentation file with the file name that needs to be saved.',
+                },
+                'content': {
+                    'type': 'string',
+                    'description': 'Full content of the documentation file that needs to be saved on the disk.',
+                },
+            },
+            'required': ['path', 'content'],
+        },
+    }],
+}
+
+REVIEW_CHANGES = {
+    'definitions': [{
+        'name': 'review_diff',
+        'description': 'Review a unified diff and select hunks to apply or rework.',
+        'parameters': {
+            "type": "object",
+            "properties": {
+                "hunks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "number": {
+                                "type": "integer",
+                                "description": "Index of the hunk in the diff. Starts from 1."
+                            },
+                            "reason": {
+                                "type": "string",
+                                "description": "Reason for applying or ignoring this hunk, or for asking for it to be reworked."
+                            },
+                            "decision": {
+                                "type": "string",
+                                "enum": ["apply", "ignore", "rework"],
+                                "description": "Whether to apply this hunk, rework, or ignore it."
+                            }
+                        },
+                        "required": ["number", "reason", "decision"],
+                        "additionalProperties": False
+                    },
+                },
+                "review_notes": {
+                    "type": "string"
+                }
+            },
+            "required": ["hunks", "review_notes"],
+            "additionalProperties": False
+        }
+    }],
+}
+
+GET_BUG_REPORT_MISSING_DATA = {
+    'definitions': [{
+        'name': 'bug_report_missing_data',
+        'description': 'Review bug report and identify missing data. List questions that need to be answered to proceed with the bug fix. If no additional questions are needed missing_data should be an empty array.',
+        'parameters': {
+            "type": "object",
+            "properties": {
+                "missing_data": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "description": "Very clear question that needs to be answered to have good bug report.",
+                            },
+                        },
+                        "required": ["question"],
+                        "additionalProperties": False
+                    },
+                }
+            },
+            "required": ["missing_data"],
+            "additionalProperties": False
+        }
+    }],
+}
+
+LIST_RELEVANT_FILES = {
+    'definitions': [{
+        'name': 'list_relevant_files',
+        'description': 'List of relevant files for the current task.',
+        'parameters': {
+            "type": "object",
+            "properties": {
+                "relevant_files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "Path to the file that is relevant for the current task, relative to the project root."
+                    },
+                }
+            },
+            "required": ["relevant_files"],
+            "additionalProperties": False
+        }
+    }],
+}
+
+DESCRIBE_FILE = {
+    'definitions': [{
+        'name': 'describe_file',
+        'description': 'Describe the content of the file.',
+        'parameters': {
+            "type": "object",
+            "properties": {
+                "summary": {
+                    "type": "string",
+                    "description": "Describe in detail the functionality being defined or implemented in this file. Be as detailed as possible."
+                },
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "Path to a file that is referenced in the current file, relative to the project root.",
+                    },
+                    "description": "List of file references."
+                }
+            },
+            "required": ["summary", "references"],
+            "additionalProperties": False,
+        }
+    }]
 }

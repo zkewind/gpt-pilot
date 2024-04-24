@@ -5,7 +5,7 @@ import sys
 import uuid
 from getpass import getuser
 from database.database import get_app, get_app_by_user_workspace
-from utils.style import color_green_bold, style_config
+from utils.style import color_green_bold, color_red, style_config
 from utils.utils import should_execute_step
 from const.common import STEPS
 
@@ -16,7 +16,9 @@ def get_arguments():
     args = sys.argv[1:]
 
     # Create an empty dictionary to store the key-value pairs.
-    arguments = {}
+    arguments = {
+        'continuing_project': False
+    }
 
     # Loop through the arguments and parse them as key-value pairs.
     for arg in args:
@@ -39,16 +41,22 @@ def get_arguments():
         app = get_app_by_user_workspace(arguments['user_id'], arguments['workspace'])
         if app is not None:
             arguments['app_id'] = str(app.id)
+            arguments['continuing_project'] = True
     else:
         arguments['workspace'] = None
 
     if 'app_id' in arguments:
         if app is None:
-            app = get_app(arguments['app_id'])
+            try:
+                app = get_app(arguments['app_id'])
+            except ValueError as err:
+                print(color_red(f"Error: {err}"))
+                sys.exit(-1)
 
         arguments['app_type'] = app.app_type
         arguments['name'] = app.name
         arguments['status'] = app.status
+        arguments['continuing_project'] = True
         if 'step' not in arguments or ('step' in arguments and not should_execute_step(arguments['step'], app.status)):
             arguments['step'] = 'finished' if app.status == 'finished' else STEPS[STEPS.index(app.status) + 1]
 
@@ -56,7 +64,7 @@ def get_arguments():
         print(color_green_bold(f'{app.name} (app_id={arguments["app_id"]})'))
         print(color_green_bold('--------------------------------------------------------------\n'))
 
-    elif '--get-created-apps-with-steps' not in args:
+    elif '--get-created-apps-with-steps' not in args and '--version' not in args and not any(arg.startswith('--delete-app') for arg in args):
         arguments['app_id'] = str(uuid.uuid4())
         print(color_green_bold('\n------------------ STARTING NEW PROJECT ----------------------'))
         print("If you wish to continue with this project in future run:")
@@ -80,7 +88,7 @@ def get_email():
     gitconfig_path = os.path.expanduser('~/.gitconfig')
 
     if os.path.exists(gitconfig_path):
-        with open(gitconfig_path, 'r') as file:
+        with open(gitconfig_path, 'r', encoding="utf-8") as file:
             content = file.read()
 
             # Use regex to search for email address

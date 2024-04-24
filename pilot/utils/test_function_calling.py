@@ -1,4 +1,4 @@
-from const.function_calls import ARCHITECTURE
+from const.function_calls import ARCHITECTURE, USER_TASKS
 from utils.llm_connection import clean_json_response
 from .function_calling import parse_agent_response, JsonPrompter
 
@@ -71,10 +71,10 @@ def test_json_prompter():
 
     # Then
     assert prompt == '''Help choose the appropriate function to call to answer the user's question.
-The response must contain ONLY the JSON object, with NO additional text or explanation.
+You must respond with ONLY the JSON object, with NO additional text or explanation.
 
 Available functions:
-- process_technologies - Print the list of technologies that are created.
+- process_architecture - Get architecture and the list of system dependencies required for the project.
 
 Create a web-based chat app'''
 
@@ -89,10 +89,10 @@ def test_llama_json_prompter():
     # Then
     assert prompt == '''[INST] <<SYS>>
 Help choose the appropriate function to call to answer the user's question.
-The response must contain ONLY the JSON object, with NO additional text or explanation.
+You must respond with ONLY the JSON object, with NO additional text or explanation.
 
 Available functions:
-- process_technologies - Print the list of technologies that are created.
+- process_architecture - Get architecture and the list of system dependencies required for the project.
 <</SYS>>
 
 Create a web-based chat app [/INST]'''
@@ -103,22 +103,21 @@ def test_json_prompter_named():
     prompter = JsonPrompter()
 
     # When
-    prompt = prompter.prompt('Create a web-based chat app', ARCHITECTURE['definitions'], 'process_technologies')
+    prompt = prompter.prompt('Create a web-based chat app', USER_TASKS['definitions'], 'process_user_tasks')
 
     # Then
-    assert prompt == '''Please provide a JSON object that defines the arguments for the `process_technologies` function to answer the user's question.
-The response must contain ONLY the JSON object, with NO additional text or explanation.
+    assert prompt == '''**IMPORTANT**
+You must respond with ONLY the JSON object, with NO additional text or explanation.
 
-# process_technologies: Print the list of technologies that are created.
 Here is the schema for the expected JSON object:
 ```json
 {
-    "technologies": {
+    "tasks": {
         "type": "array",
-        "description": "List of technologies.",
+        "description": "List of user tasks.",
         "items": {
             "type": "string",
-            "description": "technology"
+            "description": "user task"
         }
     }
 }
@@ -132,23 +131,22 @@ def test_llama_json_prompter_named():
     prompter = JsonPrompter(is_instruct=True)
 
     # When
-    prompt = prompter.prompt('Create a web-based chat app', ARCHITECTURE['definitions'], 'process_technologies')
+    prompt = prompter.prompt('Create a web-based chat app', USER_TASKS['definitions'], 'process_user_tasks')
 
     # Then
     assert prompt == '''[INST] <<SYS>>
-Please provide a JSON object that defines the arguments for the `process_technologies` function to answer the user's question.
-The response must contain ONLY the JSON object, with NO additional text or explanation.
+**IMPORTANT**
+You must respond with ONLY the JSON object, with NO additional text or explanation.
 
-# process_technologies: Print the list of technologies that are created.
 Here is the schema for the expected JSON object:
 ```json
 {
-    "technologies": {
+    "tasks": {
         "type": "array",
-        "description": "List of technologies.",
+        "description": "List of user tasks.",
         "items": {
             "type": "string",
-            "description": "technology"
+            "description": "user task"
         }
     }
 }

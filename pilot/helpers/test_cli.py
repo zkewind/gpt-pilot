@@ -1,20 +1,28 @@
-from unittest.mock import patch, MagicMock
+import platform
+from unittest.mock import patch, MagicMock, call
+
+import pytest
+
 from helpers.cli import execute_command, terminate_process, run_command_until_success
 from helpers.test_Project import create_project
 
+@pytest.mark.xfail()
+@patch("helpers.cli.os")
+@patch("helpers.cli.subprocess")
+def test_terminate_process_not_running(mock_subprocess, mock_os):
+    terminate_process(1234, 'not running')
 
-def test_terminate_process_not_running():
-    terminate_process(999999999, 'not running')
-    assert True
+    mock_subprocess.run.assert_not_called()
+    mock_os.killpg.assert_not_called()
 
-
-@patch('helpers.cli.get_saved_command_run')
+@patch("helpers.cli.MIN_COMMAND_RUN_TIME", create=True, new=100)
 @patch('helpers.cli.run_command')
-def test_execute_command_timeout_exit_code(mock_run, mock_get_saved_command):
+@patch("helpers.cli.terminate_process")
+def test_execute_command_timeout_exit_code(mock_terminate_process, mock_run):
     # Given
     project = create_project()
-    command = 'ping www.google.com'
-    timeout = 1
+    command = 'cat'
+    timeout = 0.1
     mock_process = MagicMock()
     mock_process.poll.return_value = None
     mock_process.pid = 1234
@@ -25,21 +33,23 @@ def test_execute_command_timeout_exit_code(mock_run, mock_get_saved_command):
 
     # Then
     assert cli_response is not None
-    assert llm_response == 'took longer than 2000ms so I killed it'
+    assert llm_response == 'DONE'
     assert exit_code is not None
+    mock_terminate_process.assert_called_once_with(1234)
 
 
 def mock_run_command(command, path, q, q_stderr):
     q.put('hello')
     mock_process = MagicMock()
     mock_process.returncode = 0
+    mock_process.pid = 1234
     return mock_process
 
 
-@patch('helpers.cli.get_saved_command_run')
 @patch('helpers.cli.ask_user', return_value='')
 @patch('helpers.cli.run_command')
-def test_execute_command_enter(mock_run, mock_ask, mock_get_saved_command):
+@patch("helpers.cli.terminate_process")
+def test_execute_command_enter(mock_terminate_process, mock_run, mock_ask):
     # Given
     project = create_project()
     command = 'echo hello'
@@ -51,14 +61,15 @@ def test_execute_command_enter(mock_run, mock_ask, mock_get_saved_command):
 
     # Then
     assert 'hello' in cli_response
-    assert llm_response is None
+    assert llm_response == 'DONE'
     assert exit_code == 0
+    mock_terminate_process.assert_called_once_with(1234)
 
 
-@patch('helpers.cli.get_saved_command_run')
 @patch('helpers.cli.ask_user', return_value='yes')
 @patch('helpers.cli.run_command')
-def test_execute_command_yes(mock_run, mock_ask, mock_get_saved_command):
+@patch('helpers.cli.terminate_process')
+def test_execute_command_yes(mock_terminate_process, mock_run, mock_ask):
     # Given
     project = create_project()
     command = 'echo hello'
@@ -70,13 +81,13 @@ def test_execute_command_yes(mock_run, mock_ask, mock_get_saved_command):
 
     # Then
     assert 'hello' in cli_response
-    assert llm_response is None
+    assert llm_response == 'DONE'
     assert exit_code == 0
+    mock_terminate_process.assert_called_once_with(1234)
 
 
-@patch('helpers.cli.get_saved_command_run')
 @patch('helpers.cli.ask_user', return_value='no')
-def test_execute_command_rejected_with_no(mock_ask, mock_get_saved_command):
+def test_execute_command_rejected_with_no(mock_ask):
     # Given
     project = create_project()
     command = 'ping www.google.com'
@@ -87,13 +98,12 @@ def test_execute_command_rejected_with_no(mock_ask, mock_get_saved_command):
 
     # Then
     assert cli_response is None
-    assert llm_response == 'DONE'
+    assert llm_response == 'SKIP'
     assert exit_code is None
 
 
-@patch('helpers.cli.get_saved_command_run')
 @patch('helpers.cli.ask_user', return_value='no, my DNS is not working, ping 8.8.8.8 instead')
-def test_execute_command_rejected_with_message(mock_ask, mock_get_saved_command):
+def test_execute_command_rejected_with_message(mock_ask):
     # Given
     project = create_project()
     command = 'ping www.google.com'

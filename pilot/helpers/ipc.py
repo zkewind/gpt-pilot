@@ -28,8 +28,17 @@ class IPCClient:
             return
 
         while True:
-            data = self.client.recv(4096)
-            message = json.loads(data)
+
+            data = b''
+            while True:
+                data = data + self.client.recv(512 * 1024)
+                try:
+                    message = json.loads(data)
+                    break
+                except json.JSONDecodeError:
+                    # This means we still got an incomplete message, so
+                    # we should continue to receive more data.
+                    continue
 
             if message['type'] == 'response':
                 # self.client.close()
@@ -37,9 +46,7 @@ class IPCClient:
 
     def send(self, data):
         serialized_data = json.dumps(data, default=json_serial)
-        print(serialized_data, type='local')
-
         data_length = len(serialized_data)
-        self.client.sendall(data_length.to_bytes(4, byteorder='big'))
-        self.client.sendall(serialized_data.encode('utf-8'))
-        time.sleep(0.1)
+        if self.client is not None:
+            self.client.sendall(data_length.to_bytes(4, byteorder='big'))
+            self.client.sendall(serialized_data.encode('utf-8'))

@@ -4,7 +4,7 @@ import yaml
 from datetime import datetime
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 USE_GPTPILOT_FOLDER = os.getenv('USE_GPTPILOT_FOLDER') == 'true'
 
@@ -25,7 +25,7 @@ class DotGptPilot:
     def with_root_path(self, root_path: str, create=True):
         if not USE_GPTPILOT_FOLDER:
             return
-        dot_gpt_pilot_path = os.path.join(root_path, '.gpt-pilot')
+        dot_gpt_pilot_path = os.path.expanduser(os.path.join(root_path, '.gpt-pilot'))
         self.dot_gpt_pilot_path = dot_gpt_pilot_path
 
         # Create the `.gpt-pilot` directory if required.
@@ -50,7 +50,7 @@ class DotGptPilot:
             return
         if self.log_chat_completions:
             time = datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
-            with open(os.path.join(self.chat_log_path, f'{time}-{req_type}.yaml'), 'w') as file:
+            with open(os.path.join(self.chat_log_path, f'{time}-{req_type}.yaml'), 'w', encoding="utf-8") as file:
                 data = {
                     'endpoint': endpoint,
                     'model': model,
@@ -66,7 +66,7 @@ class DotGptPilot:
         if self.log_chat_completions:
             time = datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
 
-            with open(os.path.join(self.chat_log_path, f'{time}-{req_type}.json'), 'w') as file:
+            with open(os.path.join(self.chat_log_path, f'{time}-{req_type}.json'), 'w', encoding="utf-8") as file:
                 data = {
                     'endpoint': endpoint,
                     'model': model,
@@ -84,6 +84,7 @@ class DotGptPilot:
             'description': project.project_description,
             'user_stories': project.user_stories,
             'architecture': project.architecture,
+            'system_dependencies': project.system_dependencies,
             'development_plan': project.development_plan,
         }
 

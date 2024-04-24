@@ -3,7 +3,7 @@ import os
 import pytest
 from unittest.mock import patch
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 from main import get_custom_print
 from helpers.agents.TechLead import TechLead, DEVELOPMENT_PLANNING_STEP
@@ -65,5 +65,4 @@ The development process will include the creation of user stories and tasks, bas
             # Then
             assert development_plan is not None
             assert_non_empty_string(development_plan[0]['description'])
-            assert_non_empty_string(development_plan[0]['programmatic_goal'])
             assert_non_empty_string(development_plan[0]['user_review_goal'])

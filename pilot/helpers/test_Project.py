@@ -1,122 +1,353 @@
 import os
 import json
+from pathlib import Path
 import pytest
 from unittest.mock import patch, MagicMock
 from helpers.Project import Project
-from database.models.files import File
 
-test_root = os.path.join(os.path.dirname(__file__), '../../workspace/gpt-pilot-test').replace('\\', '/')
-
+test_root = str(Path(__file__).parent.parent.parent / Path("workspace") / Path("gpt-pilot-test"))
 
 def create_project():
+    os.environ["AUTOFIX_FILE_PATHS"] = "false"
     project = Project({
         'app_id': 'test-project',
         'name': 'TestProject',
         'app_type': ''
-    },
-        name='TestProject',
-        architecture=[],
-        user_stories=[]
-    )
+    })
     project.set_root_path(test_root)
     project.app = 'test'
     project.current_step = 'test'
     return project
 
 
-@pytest.mark.parametrize('test_data', [
-    {'name': 'package.json', 'path': 'package.json', 'saved_to': f'{test_root}/package.json'},
-    {'name': 'package.json', 'path': '', 'saved_to': f'{test_root}/package.json'},
-    # {'name': 'Dockerfile', 'path': None, 'saved_to': f'{test_root}/Dockerfile'},
-    {'name': None, 'path': 'public/index.html', 'saved_to': f'{test_root}/public/index.html'},
-    {'name': '', 'path': 'public/index.html', 'saved_to': f'{test_root}/public/index.html'},
+class TestProject:
+    @pytest.mark.parametrize('file_path, file_name, expected', [
+        ('file.txt', 'file.txt', f'{test_root}/file.txt'),
+        ('', 'file.txt', f'{test_root}/file.txt'),
+        ('path/', 'file.txt', f'{test_root}/path/file.txt'),
+        ('path/to/', 'file.txt', f'{test_root}/path/to/file.txt'),
+        ('path/to/file.txt', 'file.txt', f'{test_root}/path/to/file.txt'),
+        ('./path/to/file.txt', 'to/file.txt', f'{test_root}/path/to/file.txt'),
+        ('./package.json', 'package.json', f'{test_root}/package.json'),
+    ])
+    def test_get_full_path(self, file_path, file_name, expected):
+        # Given
+        project = create_project()
 
-    # TODO: Treatment of paths outside of the project workspace - https://github.com/Pythagora-io/gpt-pilot/issues/129
-    # {'name': '/etc/hosts', 'path': None, 'saved_to': '/etc/hosts'},
-    # {'name': '.gitconfig', 'path': '~', 'saved_to': '~/.gitconfig'},
-    # {'name': '.gitconfig', 'path': '~/.gitconfig', 'saved_to': '~/.gitconfig'},
-    # {'name': 'gpt-pilot.log', 'path': '/temp/gpt-pilot.log', 'saved_to': '/temp/gpt-pilot.log'},
-], ids=[
-    'name == path', 'empty path',
-    # 'None path',
-    'None name', 'empty name',
-    # 'None path absolute file', 'home path', 'home path same name', 'absolute path with name'
-])
-@patch('helpers.Project.update_file')
-@patch('helpers.Project.File')
-def test_save_file(mock_file_insert, mock_update_file, test_data):
-    # Given
-    data = {'content': 'Hello World!'}
-    if test_data['name'] is not None:
-        data['name'] = test_data['name']
-    if test_data['path'] is not None:
-        data['path'] = test_data['path']
+        # When
+        relative_path, absolute_path = project.get_full_file_path(file_path, file_name)
 
-    project = create_project()
+        # Then
+        assert absolute_path == str(Path(expected))
 
-    # When
-    project.save_file(data)
+    @pytest.mark.parametrize(
+        ("file_path", "file_name", "expected_path", "expected_absolute_path"), [
+        ('', '', '/', f'{test_root}/'),
+        ('', '.', '/', f'{test_root}/'),
+        ('', '.env', '/', f'{test_root}/.env'),
+        ('', '~/', '/', f'{test_root}/'),
+        ('', f'{test_root}/', '/', f'{test_root}/'),
+        ('', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/'),
+        ('', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        ('', 'server.js', '/', f'{test_root}/server.js'),
+        ('', 'folder1', '/folder1', f'{test_root}/folder1/'),
+        ('', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        ('', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        ('.', '', '/', f'{test_root}/'),
+        ('.', '.', '/', f'{test_root}/'),
+        ('.', '.env', '/', f'{test_root}/.env'),
+        ('.', '~/', '/', f'{test_root}/'),
+        ('.', f'{test_root}/', '/', f'{test_root}/'),
+        ('.', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/'),
+        ('.', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        ('.', 'server.js', '/', f'{test_root}/server.js'),
+        ('.', 'folder1', '/folder1', f'{test_root}/folder1/'),
+        ('.', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('.', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('.', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('.', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('.', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        ('.', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('.', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        ('.env', '', '/', f'{test_root}/.env'),
+        ('.env', '.', '/', f'{test_root}/.env'),
+        ('.env', '.env', '/', f'{test_root}/.env'),
+        ('.env', '~/', '/', f'{test_root}/.env'),
+        ('.env', f'{test_root}/', '/', f'{test_root}/.env'),
+        ('.env', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/.env'),
+        ('.env', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/.env'),
+        ('.env', 'server.js', '/', f'{test_root}/server.js'),
+        ('.env', 'folder1', '/folder1', f'{test_root}/folder1/.env'),
+        ('.env', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/.env'),
+        ('.env', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/.env'),
+        ('.env', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('.env', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('.env', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        ('.env', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('.env', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        ('~/', '', '/', f'{test_root}/'),
+        ('~/', '.', '/', f'{test_root}/'),
+        ('~/', '.env', '/', f'{test_root}/.env'),
+        ('~/', '~/', '/', f'{test_root}/'),
+        ('~/', f'{test_root}/', '/', f'{test_root}/'),
+        ('~/', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/'),
+        ('~/', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        ('~/', 'server.js', '/', f'{test_root}/server.js'),
+        ('~/', 'folder1', '/folder1', f'{test_root}/folder1/'),
+        ('~/', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('~/', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('~/', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        ('~/', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        (f'{test_root}/', '', '/', f'{test_root}/'),
+        (f'{test_root}/', '.', '/', f'{test_root}/'),
+        (f'{test_root}/', '.env', '/', f'{test_root}/.env'),
+        (f'{test_root}/', '~/', '/', f'{test_root}/'),
+        (f'{test_root}/', f'{test_root}/', '/', f'{test_root}/'),
+        (f'{test_root}/', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        (f'{test_root}/', 'server.js', '/', f'{test_root}/server.js'),
+        (f'{test_root}/', 'folder1', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        (f'{test_root}/', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        (f'{test_root}/', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        (f'{test_root}/folder1', '', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/folder1', '.', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/folder1', '.env', '/folder1', f'{test_root}/folder1/.env'),
+        (f'{test_root}/folder1', '~/', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/folder1', f'{test_root}/', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/folder1', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/folder1', f'{test_root}/Folder With Space/', '/folder1/Folder With Space', f'{test_root}/folder1/Folder With Space/'),
+        (f'{test_root}/folder1', 'server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        (f'{test_root}/folder1', 'folder1', '/folder1', f'{test_root}/folder1/'),
+        (f'{test_root}/folder1', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        (f'{test_root}/folder1', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        (f'{test_root}/folder1', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1', f'{test_root}/Folder With Space/server.js', '/folder1/Folder With Space', f'{test_root}/folder1/Folder With Space/server.js'),
+        (f'{test_root}/folder1', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        (f'{test_root}/Folder With Space/', '', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        (f'{test_root}/Folder With Space/', '.', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        (f'{test_root}/Folder With Space/', '.env', '/Folder With Space', f'{test_root}/Folder With Space/.env'),
+        (f'{test_root}/Folder With Space/', '~/', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        (f'{test_root}/Folder With Space/', f'{test_root}/', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        (f'{test_root}/Folder With Space/', f'{test_root}/folder1', '/Folder With Space/folder1', f'{test_root}/Folder With Space/folder1/'),
+        (f'{test_root}/Folder With Space/', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/'),
+        (f'{test_root}/Folder With Space/', 'server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/', 'folder1', '/Folder With Space/folder1', f'{test_root}/Folder With Space/folder1/'),
+        (f'{test_root}/Folder With Space/', 'folder1/folder2', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/'),
+        (f'{test_root}/Folder With Space/', 'folder1/folder2/', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/'),
+        (f'{test_root}/Folder With Space/', 'folder1/folder2/server.js', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        (f'{test_root}/Folder With Space/', f'{test_root}/folder1/folder2/server.js', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        (f'{test_root}/Folder With Space/', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/', '~/folder1/folder2/server.js', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        (f'{test_root}/Folder With Space/', './folder1/server.js', '/Folder With Space/folder1', f'{test_root}/Folder With Space/folder1/server.js'),
+        ('server.js', '', '/', f'{test_root}/server.js'),
+        ('server.js', '.', '/', f'{test_root}/server.js'),
+        ('server.js', '.env', '/', f'{test_root}/.env'),
+        ('server.js', '~/', '/', f'{test_root}/server.js'),
+        ('server.js', f'{test_root}/', '/', f'{test_root}/server.js'),
+        ('server.js', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/server.js'),
+        ('server.js', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        ('server.js', 'server.js', '/', f'{test_root}/server.js'),
+        ('server.js', 'folder1', '/folder1', f'{test_root}/folder1/server.js'),
+        ('server.js', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('server.js', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('server.js', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('server.js', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('server.js', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        ('server.js', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('server.js', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        ('folder1', '', '/folder1', f'{test_root}/folder1/'),
+        ('folder1', '.', '/folder1', f'{test_root}/folder1/'),
+        ('folder1', '.env', '/folder1', f'{test_root}/folder1/.env'),
+        ('folder1', '~/', '/folder1', f'{test_root}/folder1/'),
+        ('folder1', f'{test_root}/', '/folder1', f'{test_root}/folder1/'),
+        ('folder1', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/'),
+        ('folder1', f'{test_root}/Folder With Space/', '/folder1/Folder With Space', f'{test_root}/folder1/Folder With Space/'),
+        ('folder1', 'server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        ('folder1', 'folder1', '/folder1', f'{test_root}/folder1/'),
+        ('folder1', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1', f'{test_root}/Folder With Space/server.js', '/folder1/Folder With Space', f'{test_root}/folder1/Folder With Space/server.js'),
+        ('folder1', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        ('folder1/folder2', '', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', '.', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', '.env', '/folder1/folder2', f'{test_root}/folder1/folder2/.env'),
+        ('folder1/folder2', '~/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', f'{test_root}/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', f'{test_root}/folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', f'{test_root}/Folder With Space/', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/'),
+        ('folder1/folder2', 'server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2', 'folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2', f'{test_root}/Folder With Space/server.js', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/server.js'),
+        ('folder1/folder2', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2', './folder1/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/', '', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', '.', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', '.env', '/folder1/folder2', f'{test_root}/folder1/folder2/.env'),
+        ('folder1/folder2/', '~/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', f'{test_root}/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', f'{test_root}/folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', f'{test_root}/Folder With Space/', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/'),
+        ('folder1/folder2/', 'server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/', 'folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/'),
+        ('folder1/folder2/', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/', f'{test_root}/Folder With Space/server.js', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/server.js'),
+        ('folder1/folder2/', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/', './folder1/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', '', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', '.', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', '.env', '/folder1/folder2', f'{test_root}/folder1/folder2/.env'),
+        ('folder1/folder2/server.js', '~/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', f'{test_root}/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', f'{test_root}/folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', f'{test_root}/Folder With Space/', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', 'server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', 'folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', f'{test_root}/Folder With Space/server.js', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('folder1/folder2/server.js', './folder1/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', '', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', '.', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', '.env', '/folder1/folder2', f'{test_root}/folder1/folder2/.env'),
+        (f'{test_root}/folder1/folder2/server.js', '~/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', f'{test_root}/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', f'{test_root}/folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', f'{test_root}/Folder With Space/', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', 'server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', 'folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', f'{test_root}/Folder With Space/server.js', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/folder1/folder2/server.js', './folder1/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        (f'{test_root}/Folder With Space/server.js', '', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', '.', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', '.env', '/Folder With Space', f'{test_root}/Folder With Space/.env'),
+        (f'{test_root}/Folder With Space/server.js', '~/', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', f'{test_root}/', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', f'{test_root}/folder1', '/folder1/Folder With Space', f'{test_root}/folder1/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', f'{test_root}/Folder With Space/', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', 'server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', 'folder1', '/folder1/Folder With Space', f'{test_root}/folder1/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', 'folder1/folder2', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', 'folder1/folder2/', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', 'folder1/folder2/server.js', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', f'{test_root}/Folder With Space/server.js', '/Folder With Space', f'{test_root}/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', '~/folder1/folder2/server.js', '/folder1/folder2/Folder With Space', f'{test_root}/folder1/folder2/Folder With Space/server.js'),
+        (f'{test_root}/Folder With Space/server.js', './folder1/server.js', '/folder1/Folder With Space', f'{test_root}/folder1/Folder With Space/server.js'),
+        ('~/folder1/folder2/server.js', '', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', '.', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', '.env', '/folder1/folder2', f'{test_root}/folder1/folder2/.env'),
+        ('~/folder1/folder2/server.js', '~/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', f'{test_root}/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', f'{test_root}/folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', f'{test_root}/Folder With Space/', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', 'server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', 'folder1', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', f'{test_root}/Folder With Space/server.js', '/Folder With Space/folder1/folder2', f'{test_root}/Folder With Space/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('~/folder1/folder2/server.js', './folder1/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('./folder1/server.js', '', '/folder1', f'{test_root}/folder1/server.js'),
+        ('./folder1/server.js', '.', '/folder1', f'{test_root}/folder1/server.js'),
+        ('./folder1/server.js', '.env', '/folder1', f'{test_root}/folder1/.env'),
+        ('./folder1/server.js', '~/', '/folder1', f'{test_root}/folder1/server.js'),
+        ('./folder1/server.js', f'{test_root}/', '/folder1', f'{test_root}/folder1/server.js'),
+        ('./folder1/server.js', f'{test_root}/folder1', '/folder1', f'{test_root}/folder1/server.js'),
+        ('./folder1/server.js', f'{test_root}/Folder With Space/', '/Folder With Space/folder1', f'{test_root}/Folder With Space/folder1/server.js'),
+        ('./folder1/server.js', 'server.js', '/folder1', f'{test_root}/folder1/server.js'),
+        ('./folder1/server.js', 'folder1', '/folder1', f'{test_root}/folder1/server.js'),
+        ('./folder1/server.js', 'folder1/folder2', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('./folder1/server.js', 'folder1/folder2/', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('./folder1/server.js', 'folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('./folder1/server.js', f'{test_root}/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('./folder1/server.js', f'{test_root}/Folder With Space/server.js', '/Folder With Space/folder1', f'{test_root}/Folder With Space/folder1/server.js'),
+        ('./folder1/server.js', '~/folder1/folder2/server.js', '/folder1/folder2', f'{test_root}/folder1/folder2/server.js'),
+        ('./folder1/server.js', './folder1/server.js', '/folder1', f'{test_root}/folder1/server.js'),
 
-    # Then assert that update_file with the correct path
-    expected_saved_to = test_data['saved_to']
-    mock_update_file.assert_called_once_with(expected_saved_to, 'Hello World!')
+    ])
+    def test_get_full_path_permutations(self, file_path, file_name, expected_path, expected_absolute_path):
+        """
+        Test many different permutations of file path/name combinations.
+        """
+        project = create_project()
+        relative_path, absolute_path = project.get_full_file_path(file_path, file_name)
+        # Normalize results before comparison, in case of Windows
+        assert str(Path(relative_path)) == str(Path(expected_path))
+        assert str(Path(absolute_path)) == str(Path(expected_absolute_path))
 
-    # Also assert that File.insert was called with the expected arguments
-    # expected_file_data = {'app': project.app, 'path': test_data['path'], 'name': test_data['name'],
-    #                       'full_path': expected_saved_to}
-    # mock_file_insert.assert_called_once_with(app=project.app, **expected_file_data,
-    #                                          **{'name': test_data['name'], 'path': test_data['path'],
-    #                                             'full_path': expected_saved_to})
+    @pytest.mark.parametrize('test_data', [
+        {'name': 'package.json', 'path': 'package.json', 'saved_to': f'{test_root}/package.json'},
+        {'name': 'package.json', 'path': '', 'saved_to': f'{test_root}/package.json'},
+        {'name': 'package.json', 'path': '/', 'saved_to': f'{test_root}/package.json'},
+        {'name': 'package.json', 'path': None, 'saved_to': f'{test_root}/package.json'},
+        {'name': None, 'path': 'public/index.html', 'saved_to': f'{test_root}/public/index.html'},
+        {'name': '', 'path': 'public/index.html', 'saved_to': f'{test_root}/public/index.html'},
+        # TODO: Treatment of paths outside of the project workspace - https://github.com/Pythagora-io/gpt-pilot/issues/129
+        {'name': '/etc/hosts.txt', 'path': None, 'saved_to': f'{test_root}/etc/hosts.txt'},
+        # {'name': '.gitconfig', 'path': '~', 'saved_to': '~/.gitconfig'},
+        # {'name': '.gitconfig', 'path': '~/.gitconfig', 'saved_to': '~/.gitconfig'},
+        # {'name': 'gpt-pilot.log', 'path': '/temp/gpt-pilot.log', 'saved_to': '/temp/gpt-pilot.log'},
+    ])
+    @patch('helpers.Project.update_file')
+    @patch('helpers.Project.File')
+    @patch('helpers.Project.describe_file')
+    def test_save_file(self, mock_describe_file, mock_file_insert, mock_update_file, test_data):
+        # Given
+        data = {'content': 'Hello World!'}
+        if test_data['name'] is not None:
+            data['name'] = str(Path(test_data['name']))
+        if test_data['path'] is not None:
+            data['path'] = str(Path(test_data['path']))
 
+        mock_describe_file.return_value = "test description"
+        project = create_project()
 
-@pytest.mark.parametrize('file_path, file_name, expected', [
-    ('file.txt', 'file.txt', f'{test_root}/file.txt'),
-    ('', 'file.txt', f'{test_root}/file.txt'),
-    ('path/', 'file.txt', f'{test_root}/path/file.txt'),
-    ('path/to/', 'file.txt', f'{test_root}/path/to/file.txt'),
-    ('path/to/file.txt', 'file.txt', f'{test_root}/path/to/file.txt'),
-    ('./path/to/file.txt', 'file.txt', f'{test_root}/./path/to/file.txt'),  # ideally result would not have `./`
-])
-def test_get_full_path(file_path, file_name, expected):
-    # Given
-    project = create_project()
+        # When
+        project.save_file(data)
 
-    # When
-    relative_path, absolute_path = project.get_full_file_path(file_path, file_name)
-
-    # Then
-    assert absolute_path == expected
-
-
-@pytest.mark.skip(reason="Handling of absolute paths will be revisited in #29")
-@pytest.mark.parametrize('file_path, file_name, expected', [
-    ('/file.txt', 'file.txt', '/file.txt'),
-    ('/path/to/file.txt', 'file.txt', '/path/to/file.txt'),
-    # Only passes on Windows? ('C:\\path\\to\\file.txt', 'file.txt', 'C:\\path\\to/file.txt'),
-    ('~/path/to/file.txt', 'file.txt', '~/path/to/file.txt'),
-])
-def test_get_full_path_absolute(file_path, file_name, expected):
-    # Given
-    project = create_project()
-
-    # When
-    relative_path, absolute_path = project.get_full_file_path(file_path, file_name)
-
-    # Then
-    assert absolute_path == expected
-
-# This is known to fail and should be avoided
-# def test_get_full_file_path_error():
-#     # Given
-#     file_path = 'path/to/file/'
-#     file_name = ''
-#
-#     # When
-#     full_path = project.get_full_file_path(file_path, file_name)
-#
-#     # Then
-#     assert full_path == f'{test_root}/path/to/file/'
-
+        # Then assert that update_file with the correct path
+        expected_saved_to = str(Path(test_data['saved_to']))
+        mock_update_file.assert_called_once_with(expected_saved_to, 'Hello World!', project=project)
+        mock_describe_file.assert_called_once()
+        # Also assert that File.insert was called with the expected arguments
+        # expected_file_data = {'app': project.app, 'path': test_data['path'], 'name': test_data['name'],
+        #                       'full_path': expected_saved_to}
+        # mock_file_insert.assert_called_once_with(**expected_file_data,
 
 class TestProjectFileLists:
     def setup_method(self):
@@ -127,11 +358,10 @@ class TestProjectFileLists:
         project.project_description = 'Test Project'
         project.development_plan = [{
             'description': 'Test User Story',
-            'programmatic_goal': 'Test Programmatic Goal',
             'user_review_goal': 'Test User Review Goal',
         }]
 
-        # with directories including common.IGNORE_FOLDERS
+        # with directories including common.IGNORE_PATHS
         src = os.path.join(project.root_path, 'src')
         foo = os.path.join(project.root_path, 'src/foo')
         files_no_folders = os.path.join(foo, 'files_no_folders')
@@ -180,7 +410,7 @@ class TestProjectFileLists:
 '''.lstrip()
 
     @patch('helpers.Project.DevelopmentSteps.get_or_create', return_value=('test', True))
-    @patch('helpers.Project.File.get_or_create', return_value=('test', True))
+    @patch('helpers.Project.File.get_or_create', return_value=(MagicMock(), True))
     @patch('helpers.Project.FileSnapshot.get_or_create', return_value=(MagicMock(), True))
     def test_save_files_snapshot(self, mock_snap, mock_file, mock_step):
         # Given a snapshot of the files in the project

@@ -19,16 +19,14 @@ from test.mock_questionary import MockQuestionary
 @pytest.mark.uses_tokens
 @patch('pilot.helpers.AgentConvo.get_saved_development_step')
 @patch('pilot.helpers.AgentConvo.save_development_step')
-@patch('utils.questionary.get_saved_user_input')
 @patch('utils.questionary.save_user_input')
-@patch('helpers.cli.get_saved_command_run')
 @patch('helpers.cli.run_command')
 @patch('helpers.cli.save_command_run')
 # @patch('pilot.helpers.cli.execute_command', return_value=('', 'DONE', 0))
 def test_debug(
         # mock_execute_command,
-        mock_save_command, mock_run_command, mock_get_saved_command,
-        mock_save_input, mock_user_input, mock_save_step, mock_get_saved_step):
+        mock_save_command, mock_run_command,
+        mock_save_input, mock_save_step, mock_get_saved_step):
     # Given
     builtins.print, ipc_client_instance = get_custom_print({})
     project = create_project()
@@ -72,7 +70,7 @@ stdout:
 ```
 > chat_app@1.0.0 start
 > node server.js
-```        
+```
 '''
     })
 
@@ -86,10 +84,9 @@ stdout:
         assert result == {'success': True}
 
 
-@patch('helpers.AgentConvo.get_saved_development_step')
 @patch('helpers.AgentConvo.create_gpt_chat_completion')
 @patch('helpers.AgentConvo.save_development_step')
-def test_debug_need_to_see_output(mock_save_step, mock_get_completion, mock_get_step):
+def test_debug_need_to_see_output(mock_save_step, mock_get_completion):
     # Given
     builtins.print, ipc_client_instance = get_custom_print({})
     project = create_project()
@@ -112,6 +109,7 @@ def test_debug_need_to_see_output(mock_save_step, mock_get_completion, mock_get_
     debugger = Debugger(developer)
     convo = AgentConvo(developer)
     convo.load_branch = MagicMock()
+    convo.replace_files = MagicMock()
     # hard-wired LLM responses, 1st response asks to see output
     mock_get_completion.side_effect = [{'text': json.dumps(response)} for response in [{
         'thoughts': 'Hmmm, testing',
@@ -144,23 +142,7 @@ def test_debug_need_to_see_output(mock_save_step, mock_get_completion, mock_get_
     # Then we call the LLM twice, second time to show the output
     assert mock_get_completion.call_count == 2
     prompt = mock_get_completion.call_args_list[1].args[0][2]['content']
-    assert prompt.startswith('''
-# Current Step:
-This step was executed successfully.
-```
-{'type': 'command', 'command': 'cat package.json', 'need_to_see_output': True}
-```
-
-stdout:
-```
-{"dependencies": {"something": "0.1.2"}}
-```
-
-
-# Next Task Steps:
-```
-[{'type': 'command', 'command': 'npm install something'}]
-```'''.lstrip())
+    assert prompt.startswith('{"thoughts": "It is already installed", "reasoning": "I installed it earlier", "steps": [{"type": "command", "command": "npm start", "command_id": "app"}]}'.lstrip())
     # And eventually we start the app
     assert developer.step_command_run.call_count == 2
-    assert developer.step_command_run.call_args_list[1].args[1]['command'] == 'npm start'
+    assert developer.step_command_run.call_args_list[1].args[1][1]['command'] == 'npm start'

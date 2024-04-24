@@ -8,6 +8,7 @@ import distro
 import json
 import hashlib
 import re
+import copy
 from jinja2 import Environment, FileSystemLoader
 from .style import color_green
 
@@ -33,9 +34,8 @@ def capitalize_first_word_with_underscores(s):
     return capitalized_string
 
 
-def get_prompt(prompt_name, data=None):
-    if data is None:
-        data = {}
+def get_prompt(prompt_name, original_data=None):
+    data = copy.deepcopy(original_data) if original_data is not None else {}
 
     get_prompt_components(data)
 
@@ -84,12 +84,12 @@ def get_prompt_components(data):
     return data.update(prompts_components)
 
 
-def get_sys_message(role,args=None):
+def get_sys_message(role, args=None):
     """
     :param role: 'product_owner', 'architect', 'dev_ops', 'tech_lead', 'full_stack_developer', 'code_monkey'
     :return: { "role": "system", "content": "You are a {role}... You do..." }
     """
-    content = get_prompt(f'system_messages/{role}.prompt',args)
+    content = get_prompt(f'system_messages/{role}.prompt', args)
 
     return {
         "role": "system",
@@ -116,7 +116,7 @@ def get_os_info():
     }
 
     if os_info["OS"] == "Linux":
-        os_info["Distribution"] = ' '.join(distro.linux_distribution(full_distribution_name=True))
+        os_info["Distribution"] = distro.name(pretty=True)
     elif os_info["OS"] == "Windows":
         os_info["Win32 Version"] = ' '.join(platform.win32_ver())
     elif os_info["OS"] == "Mac":
@@ -195,6 +195,7 @@ def clean_filename(filename):
 
     return cleaned_filename
 
+
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
     if isinstance(obj, (datetime.datetime, datetime.date)):
@@ -203,3 +204,9 @@ def json_serial(obj):
         return str(obj)
     else:
         return str(obj)
+
+
+def remove_lines_with_string(file_content, matching_string):
+    lines = file_content.split('\n')
+    new_lines = [line for line in lines if matching_string not in line.lower()]
+    return '\n'.join(new_lines)
