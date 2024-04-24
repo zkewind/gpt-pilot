@@ -1,21 +1,24 @@
+{{ steps_list }}
 {% if issue_description -%}
 You wanted me to check this - `{{ issue_description }}` but there was a problem
 {%- else -%}
-Ok, we need to debug this issue
+Now, we need to debug this issue
 {%- endif -%}
-{% if command %} and we need to be able to execute `{{ command }}` successfully. {% else %}.
-Here is a brief explanation of what's happening:
+{% if command %} and we need to be able to execute `{{ command }}` successfully. {% endif %}.
+{% if user_input %}I looked into this issue. I want you to take my findings as important part of debugging this issue. Here are my findings:
 ```
 {{ user_input }}
-```
-{% endif -%}
-{{ context }}
-I want you to debug this issue by yourself using the `steps` of the `start_debugging` function.
+```{% endif -%}
+I want you to create a list of steps that are needed to debug this issue.
 
-`command` step will run a command on the machine and will return the CLI output to you so you can see what to do next. Note that the command will run on a {{ os }} machine.
+Each step can be either:
 
-`code_change` step will change the code where you just need to thoroughly describe what needs to be implemented, I will implement the requested changes and let you know.
+* `command` - command to run (must be able to run on a {{ os }} machine, assume current working directory is project root folder)
+* `save_file` - step will create or update a file, and you need to thoroughly describe what needs to be implemented. I will implement the requested changes and let you know.
+* `human_intervention` - if you need the human to do something, use this type of step and explain in details what you want the human to do. NEVER use `human_intervention` for testing, as testing will be done separately by a dedicated QA after all the steps are done.
 
-Return a list of steps that are needed to debug this issue. By the time we execute the last step, the issue should be fixed completely. Also, make sure that at least the last step has `check_if_fixed` set to TRUE.
+{{ execution_order }}
 
-{# After this, you need to decide what to do next. You can rerun the command `{{ command }}` to check if the problem is fixed or run another command with `run_command` or change more code with `implement_code_changes`. #}
+Also, make sure that at least the last step has `check_if_fixed` set to TRUE.
+
+{{ file_size_limit }}
