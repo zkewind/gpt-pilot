@@ -1,11 +1,12 @@
 # prompts/prompts.py
-from utils.style import color_yellow
+from utils.style import color_white_bold
 from const import common
 from const.llm import MAX_QUESTIONS, END_RESPONSE
 from utils.llm_connection import create_gpt_chat_completion
 from utils.utils import get_sys_message, get_prompt
 from utils.questionary import styled_select, styled_text
 from logger.logger import logger
+from helpers.exceptions import ApiError
 
 
 def ask_for_app_type():
@@ -35,9 +36,11 @@ def ask_for_app_type():
 
 
 def ask_for_main_app_definition(project):
-    description = styled_text(
+    question = 'Describe your app in as much detail as possible.'
+    print(question, type='ipc')
+    description = ask_user(
         project,
-        "Describe your app in as much detail as possible."
+        question
     )
 
     if description is None:
@@ -49,11 +52,12 @@ def ask_for_main_app_definition(project):
     return description
 
 
-def ask_user(project, question: str, require_some_input=True, hint: str = None):
+def ask_user(project, question: str, require_some_input=True, hint: str = None, ignore_user_input_count: bool = False):
     while True:
         if hint is not None:
-            print(color_yellow(hint), type='hint')
-        answer = styled_text(project, question)
+            print(color_white_bold(hint) + '\n')
+        project.finish_loading()
+        answer = styled_text(project, question, hint=hint, ignore_user_input_count=ignore_user_input_count)
 
         logger.info('Q: %s', question)
         logger.info('A: %s', answer)
@@ -69,44 +73,6 @@ def ask_user(project, question: str, require_some_input=True, hint: str = None):
             return answer
 
 
-def get_additional_info_from_openai(project, messages):
-    """
-    Runs the conversation between Product Owner and LLM.
-    Provides the user's initial description, LLM asks the user clarifying questions and user responds.
-    Limited by `MAX_QUESTIONS`, exits when LLM responds "EVERYTHING_CLEAR".
-
-    :param project: Project
-    :param messages: [
-        { "role": "system", "content": "You are a Product Owner..." },
-        { "role": "user", "content": "I want you to create the app {name} that can be described: ```{description}```..." }
-      ]
-    :return: The updated `messages` list with the entire conversation between user and LLM.
-    """
-    is_complete = False
-    while not is_complete:
-        # Obtain clarifications using the OpenAI API
-        # { 'text': new_code }
-        response = create_gpt_chat_completion(messages, 'additional_info', project)
-
-        if response is not None:
-            if response['text'] and response['text'].strip() == END_RESPONSE:
-                # print(response['text'] + '\n')
-                return messages
-
-            # Ask the question to the user
-            answer = ask_user(project, response['text'])
-
-            # Add the answer to the messages
-            messages.append({'role': 'assistant', 'content': response['text']})
-            messages.append({'role': 'user', 'content': answer})
-        else:
-            is_complete = True
-
-    logger.info('Getting additional info from openai done')
-
-    return messages
-
-
 # TODO refactor this to comply with AgentConvo class
 def generate_messages_from_description(description, app_type, name):
     """
@@ -120,24 +86,29 @@ def generate_messages_from_description(description, app_type, name):
       ]
     """
     # "I want you to create the app {name} that can be described: ```{description}```
+    prompt = get_prompt('high_level_questions/specs.prompt', {
+        'name': name,
+        'prompt': description,
+        'app_type': app_type,
+    })
+
     # Get additional answers
     # Break down stories
     # Break down user tasks
     # Start with Get additional answers
     # {prompts/components/no_microservices}
     # {prompts/components/single_question}
-    # "
-    prompt = get_prompt('high_level_questions/specs.prompt', {
-        'name': name,
-        'prompt': description,
-        'app_type': app_type,
-        # TODO: MAX_QUESTIONS should be configurable by ENV or CLI arg
-        'MAX_QUESTIONS': MAX_QUESTIONS
-    })
+    specs_instructions = get_prompt('high_level_questions/specs_instruction.prompt', {
+            'name': name,
+            'app_type': app_type,
+            # TODO: MAX_QUESTIONS should be configurable by ENV or CLI arg
+            'MAX_QUESTIONS': MAX_QUESTIONS
+        })
 
     return [
         get_sys_message('product_owner'),
-        {"role": "user", "content": prompt},
+        {'role': 'user', 'content': prompt},
+        {'role': 'system', 'content': specs_instructions},
     ]
 
 

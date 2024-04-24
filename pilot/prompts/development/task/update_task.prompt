@@ -1,37 +1,41 @@
-{% if completed_steps -%}
-# Completed Task Steps:
-```
-{{ completed_steps }}
-```
-
-{% endif -%}
-
-# Current Step:
-{% if success %}This step was executed successfully.
-{%- elif user_input -%}
-This step will not be executed. {{ user_input }}
-{%- else -%}
-This step was not executed successfully.
+{% if completed_steps|length > 1 -%}
+We have a plan for how to debug this and we've already done these steps:
+-------------------------list_of_completed_steps-------------------------{% for step in completed_steps[:-1] %}
+step #{{ loop.index - 1 }}:
+step_type: {{ step.type }}{% if 'command' in step %}
+command_to_run: `{{ step.command.command }}`{% elif step.type == 'code_change' %}
+code_change_description: `{{ step.code_change_description }}`{% endif %}{% endfor %}
+-------------------------END_list_of_completed_steps-------------------------
+{% else %}
+We have a plan for how to debug this.
 {%- endif %}
-```
-{{ current_step }}
-```
 
-{%- if cli_response %}
+Right now, we're working on the step #{{ current_step_index }}:
+-------------------------current_step-------------------------
+step_type: {{ current_step.type }}
+command_to_run: `{{ current_step.command.command }}`
+-------------------------END_current_step-------------------------
 
+We've run the command `{{ current_step.command.command }}` and we got the following output:
 {{ cli_response }}
-{%- endif %}
 
-{%- if next_steps %}
+{% if next_steps %}
+Here is a list of steps that will be executed after current step:
+-------------------------list_of_next_steps-------------------------
+{% for step in next_steps %}
+--step_{{ loop.index + current_step_index }}--
+step_type: {{ step.type }}{% if 'command' in step %}
+command_to_run: `{{ step.command.command }}`{% elif step.type == 'code_change' %}
+code_change_description: `{{ step.code_change_description }}`{% endif %}
+--END_step_{{ loop.index + current_step_index }}--{% endfor %}
+-------------------------END_list_of_next_steps-------------------------
 
-# Next Task Steps:
-```
-{{ next_steps }}
-```
-
-Based on the Next Task Steps and my comments above for the Current Step, please create a new list of task steps to complete this task. The Current Step will need to be modified, and based on that any of the Next Task Steps may or may not still be valid.
-{% else -%}
-Based on my comments above for the Current Step, please create a new list of task steps to complete this task.
 {% endif %}
-Any commands must be able to run on a {{ os }} machine.
-{{ list_running_processes }}
+Now, think step by step and create a new list of task steps to complete this task based on the output we got from running `{{ current_step.command.command }}`. It will either be the same as it is now or any of the Next Task Steps may or may not be needed anymore.
+
+{{ file_naming }}
+{{ relative_paths }}
+
+{{ execution_order }}
+
+{{ file_size_limit }}
