@@ -16,8 +16,6 @@ from const.llm import END_RESPONSE
 from helpers.cli import running_processes
 from utils.telemetry import telemetry
 
-from const.llm import MAX_QUESTIONS
-
 
 class AgentConvo:
     """
@@ -99,7 +97,7 @@ class AgentConvo:
 
         # TODO we need to specify the response when there is a function called
         # TODO maybe we can have a specific function that creates the GPT response from the function call
-        logger.info('\n>>>>>>>>>> Assistant Prompt >>>>>>>>>>\n%s\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
+        logger.info('\n>>>>>>>>>> Assistant Prompt >>>>>>>>>>\n>%s<\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
                     message_content)
         self.messages.append({"role": "assistant", "content": message_content})
         if should_log_message:
@@ -151,8 +149,8 @@ class AgentConvo:
         accepted_messages = []
         response = self.send_message(prompt_path, prompt_data, function_calls)
 
-        # Continue conversation until GPT response equals END_RESPONSE  or reaches MAX_QUESTIONS
-        while response != END_RESPONSE and len(accepted_messages) < MAX_QUESTIONS:
+        # Continue conversation until GPT response equals END_RESPONSE
+        while response != END_RESPONSE:
             user_message = ask_user(self.agent.project,
                                     'Do you want to add anything else? If not, just press ENTER.',
                                     hint=response,

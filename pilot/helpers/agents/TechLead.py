@@ -10,7 +10,7 @@ from utils.utils import should_execute_step, generate_app_data
 from database.database import save_progress, get_progress_steps, save_feature, edit_development_plan, edit_feature_plan
 from logger.logger import logger
 from const.function_calls import DEVELOPMENT_PLAN, UPDATE_DEVELOPMENT_PLAN
-from const.common import EXAMPLE_PROJECT_PLAN
+from const.common import EXAMPLE_PROJECT_PLAN_CN
 from templates import apply_project_template
 
 DEVELOPMENT_PLANNING_STEP = 'development_planning'
@@ -40,7 +40,7 @@ class TechLead(Agent):
         logger.info("Starting to create the action plan for development...")
 
         if self.project.project_manager.is_example_project:
-            llm_response = {"plan": EXAMPLE_PROJECT_PLAN}
+            llm_response = {"plan": EXAMPLE_PROJECT_PLAN_CN}
         else:
             llm_response = self.convo_development_plan.send_message('development/plan.prompt',
                 {

@@ -1,4 +1,4 @@
-您正在处理一个名为“{{ name }}”的{{ app_type }}，需要为项目的当前状态创建详细的文档。您的第一个任务是创建README.md文件。
+你正在处理一个名为“{{ name }}”的{{ app_type }}，需要为项目的当前状态创建详细的文档。你的第一个任务是创建README.md文件。
 
 {{ project_details }}
 {{ features_list }}

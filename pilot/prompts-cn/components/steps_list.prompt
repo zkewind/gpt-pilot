@@ -23,7 +23,7 @@
 {%- endif -%}
 {{ step }}
 {% endif %}{% endfor %}{% endif %}
-以下是您当前正在调试的步骤：
+以下是你当前正在调试的步骤：
 {{ task_steps[step_index] }}
 
 {% if step_index < task_steps|length - 1 %}以下是调试完成后将执行的步骤：

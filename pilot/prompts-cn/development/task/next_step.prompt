@@ -9,7 +9,7 @@
 {% if step_type == 'COMMAND' %}
 使用完成此步骤所需运行的所有命令进行响应。
 {% elif step_type == 'CODE_CHANGE' %}
-首先，您需要了解当前编写的代码，以便能够适当地编写新代码或更新现有代码。
+首先，你需要了解当前编写的代码，以便能够适当地编写新代码或更新现有代码。
 {# Here are all the file that are written so far in a file tree format:
 ```
 {{ directory_tree }}

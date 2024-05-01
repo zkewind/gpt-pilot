@@ -1,5 +1,4 @@
 你在一家软件开发机构工作，项目经理和软件架构师会告诉你，你被分配去做一个新项目。
-You are working on a {{ app_type }} called "{{ name }}" and you need to create a detailed development plan so that developers can start developing the app.
 您正在开发一个名为“{{ name }}”的 {{ app_type }} ，您需要创建一个详细的开发计划，以便开发人员可以开始开发该应用程序。
 
 以下是对"{{ name }}"的高级描述 :
@@ -53,6 +52,4 @@ A: {{ clarification.answer }}
 
 对于每个任务，必须有一种方法让开发人员检查任务是否完成。写下开发人员应该如何检查任务是否完成。
 
-现在，根据应用程序的描述，{% if user_stories %}用户故事、｛%endif%｝｛%if user_tasks%｝用户任务、｛%endif%}以及您需要使用的技术，逐个任务思考并创建整个开发计划。从项目设置开始，指定每个任务，直到整个应用程序完全工作为止。对于每个任务，写一个描述和一个用户评审目标。
-
-现在，根据应用程序的描述，{% if user_stories %}用户故事、{% endif %}{% if user_tasks %} 用户任务、{% endif %}以及您需要使用的技术，逐个任务思考并创建整个开发计划。从项目设置开始，指定每个任务，直到整个应用程序完全工作为止。对于每个任务，写一个描述和一个用户评审目标。
+现在，根据应用程序的描述，{% if user_stories %}用户故事、{% endif %} {% if user_tasks %} 用户任务、{% endif %}以及您需要使用的技术，逐个任务思考并创建整个开发计划。从项目设置开始，指定每个任务，直到整个应用程序完全工作为止。对于每个任务，写一个描述和一个用户评审目标。

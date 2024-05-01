@@ -718,10 +718,13 @@ class Developer(Agent):
             logger.info('Continue development, last_branch_name: %s', last_branch_name)
             if last_branch_name in iteration_convo.branches.keys():  # if user_feedback is not None we create new convo
                 iteration_convo.load_branch(last_branch_name)
-            user_description = ('Here is a description of what should be working: \n\n' + color_cyan_bold(
+            # user_description = ('Here is a description of what should be working: \n\n' + color_cyan_bold(
+            user_description = ('H以下是应用运行正常时的描述：\n\n' + color_cyan_bold(
+
                 continue_description) + '\n') \
                 if continue_description != '' else ''
-            user_description = 'Can you check if the app works please? ' + user_description
+            # user_description = 'Can you check if the app works please? ' + user_description
+            user_description = '你能检查一下这个应用程序是否能正常运行吗? ' + user_description
 
             if self.run_command:
                 if self.project.check_ipc():
@@ -980,6 +983,7 @@ class Developer(Agent):
                 # care about folders they run in, we don't want to crash just because of that.
                 llm_response = str(err)
 
+            llm_response = llm_response.strip()
             if llm_response == 'DONE':
                 print(color_green_bold(f"✅ {dep_text} is available."), category='agent:architect')
             else:
