@@ -9,7 +9,7 @@ from utils.files import setup_workspace
 from prompts.prompts import ask_for_app_type, ask_for_main_app_definition, ask_user
 from const.llm import END_RESPONSE
 from const.messages import MAX_PROJECT_NAME_LENGTH
-from const.common import EXAMPLE_PROJECT_DESCRIPTION_CN
+from const.common import EXAMPLE_PROJECT_DESCRIPTION
 
 PROJECT_DESCRIPTION_STEP = 'project_description'
 USER_STORIES_STEP = 'user_stories'
@@ -69,8 +69,8 @@ class ProductOwner(Agent):
         self.project.set_root_path(setup_workspace(self.project.args))
 
         if self.is_example_project:
-            print(EXAMPLE_PROJECT_DESCRIPTION_CN)
-            self.project.main_prompt = EXAMPLE_PROJECT_DESCRIPTION_CN
+            print(EXAMPLE_PROJECT_DESCRIPTION)
+            self.project.main_prompt = EXAMPLE_PROJECT_DESCRIPTION
         else:
             print(color_green_bold(
                 "GPT Pilot currently works best for web app projects using Node, Express and MongoDB. "

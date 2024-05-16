@@ -97,7 +97,7 @@ class AgentConvo:
 
         # TODO we need to specify the response when there is a function called
         # TODO maybe we can have a specific function that creates the GPT response from the function call
-        logger.info('\n>>>>>>>>>> Assistant Prompt >>>>>>>>>>\n>%s<\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
+        logger.info('\n>>>>>>>>>> Assistant Prompt >>>>>>>>>>\n%s\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
                     message_content)
         self.messages.append({"role": "assistant", "content": message_content})
         if should_log_message:

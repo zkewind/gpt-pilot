@@ -5,6 +5,7 @@ import os
 
 import sys
 import traceback
+import gettext
 
 try:
     from dotenv import load_dotenv
@@ -42,6 +43,7 @@ from database.database import (
 from utils.settings import settings, loader, get_version
 from utils.telemetry import telemetry
 from helpers.exceptions import ApiError, TokenLimitError, GracefulExit
+
 
 def init():
     # Check if the "euclid" database exists, if not, create it

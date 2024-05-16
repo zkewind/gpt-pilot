@@ -54,7 +54,6 @@ def run_command(command, root_path, q_stdout, q_stderr) -> subprocess.Popen:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            universal_newlines=True,
             cwd=root_path
         )
     else:
